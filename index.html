@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clock Tab</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=JetBrains+Mono:wght@200;300;400&display=swap');
+
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --clock-color: #ffffff;
+      --date-color: rgba(255, 255, 255, 0.65);
+      --panel-bg: rgba(0, 0, 0, 0.75);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --btn-bg: rgba(255, 255, 255, 0.08);
+      --btn-hover: rgba(255, 255, 255, 0.15);
+      --btn-active: rgba(255, 255, 255, 0.22);
+      --accent: #6c9fff;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0f;
+      transition: background 1.2s ease;
+      cursor: default;
+    }
+
+    /* ---- Backgrounds / Themes ---- */
+    body.theme-midnight   { background: #06060e; --particle-color: 100, 160, 255; --grid-color: rgba(100,160,255,0.04); --glow-color: rgba(60,100,200,0.08); }
+    body.theme-ocean      { background: #060d1a; --particle-color: 40, 140, 220; --grid-color: rgba(40,140,220,0.04); --glow-color: rgba(20,100,180,0.08); }
+    body.theme-aurora      { background: #060a12; --particle-color: 60, 200, 180; --grid-color: rgba(60,200,180,0.04); --glow-color: rgba(40,180,160,0.06); }
+    body.theme-ember      { background: #0e0606; --particle-color: 220, 80, 60; --grid-color: rgba(220,80,60,0.04); --glow-color: rgba(180,40,30,0.08); }
+    body.theme-forest     { background: #060e08; --particle-color: 60, 200, 100; --grid-color: rgba(60,200,100,0.04); --glow-color: rgba(40,160,80,0.06); }
+    body.theme-purple     { background: #08060e; --particle-color: 160, 80, 240; --grid-color: rgba(160,80,240,0.04); --glow-color: rgba(120,60,200,0.08); }
+    body.theme-pure-black { background: #000000; --particle-color: 255, 255, 255; --grid-color: rgba(255,255,255,0.025); --glow-color: rgba(255,255,255,0.03); }
+    body.theme-light {
+      background: #eeeef4;
+      --clock-color: #1a1a2e;
+      --date-color: rgba(26, 26, 46, 0.55);
+      --panel-bg: rgba(255, 255, 255, 0.85);
+      --panel-border: rgba(0, 0, 0, 0.1);
+      --btn-bg: rgba(0, 0, 0, 0.06);
+      --btn-hover: rgba(0, 0, 0, 0.1);
+      --btn-active: rgba(0, 0, 0, 0.16);
+      --accent: #3b6fd4;
+      --particle-color: 40, 60, 120;
+      --grid-color: rgba(40,60,120,0.06);
+      --glow-color: rgba(40,60,120,0.04);
+    }
+
+    /* ---- Canvas Background ---- */
+    #bgCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* ---- Perspective Grid Overlay ---- */
+    .grid-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
+      opacity: 0.7;
+    }
+
+    /* ---- Radial Glow ---- */
+    .glow-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse 50% 40% at 50% 50%, var(--glow-color), transparent);
+    }
+
+    /* ---- Scan Line (subtle CRT effect) ---- */
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      opacity: 0.5;
+    }
+
+    /* ---- Clock Display ---- */
+    .clock-container {
+      text-align: center;
+      z-index: 10;
+      position: relative;
+    }
+
+    .time-display {
+      font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+      font-weight: 200;
+      font-size: clamp(5rem, 18vw, 16rem);
+      color: var(--clock-color);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      transition: color 0.6s ease;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 40px var(--glow-color), 0 0 80px var(--glow-color);
+    }
+
+    .time-display .seconds {
+      font-size: 0.4em;
+      opacity: 0.5;
+      vertical-align: super;
+      margin-left: 0.05em;
+    }
+
+    .time-display .ampm {
+      font-size: 0.2em;
+      opacity: 0.45;
+      vertical-align: super;
+      margin-left: 0.15em;
+      font-weight: 300;
+      letter-spacing: 0.05em;
+    }
+
+    .date-display {
+      font-weight: 300;
+      font-size: clamp(0.9rem, 2.2vw, 1.6rem);
+      color: var(--date-color);
+      margin-top: 0.8rem;
+      letter-spacing: 0.06em;
+      transition: color 0.6s ease;
+    }
+
+    .greeting {
+      font-weight: 200;
+      font-size: clamp(0.75rem, 1.6vw, 1.1rem);
+      color: var(--date-color);
+      margin-top: 1.8rem;
+      opacity: 0.7;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ---- Settings Toggle ---- */
+    .settings-toggle {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid var(--panel-border);
+      background: var(--btn-bg);
+      color: var(--clock-color);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease, background 0.2s ease, transform 0.3s ease;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    body:hover .settings-toggle { opacity: 0.6; }
+    .settings-toggle:hover { opacity: 1 !important; background: var(--btn-hover); }
+    .settings-toggle.active { opacity: 1 !important; transform: rotate(60deg); }
+
+    .settings-toggle svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    /* ---- Settings Panel ---- */
+    .settings-panel {
+      position: fixed;
+      bottom: 4.5rem;
+      right: 1.5rem;
+      width: 300px;
+      max-height: calc(100vh - 7rem);
+      overflow-y: auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 1.4rem;
+      z-index: 99;
+      opacity: 0;
+      transform: translateY(12px) scale(0.96);
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+
+    .settings-panel.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .settings-panel::-webkit-scrollbar { width: 4px; }
+    .settings-panel::-webkit-scrollbar-track { background: transparent; }
+    .settings-panel::-webkit-scrollbar-thumb { background: var(--btn-bg); border-radius: 2px; }
+
+    .settings-section {
+      margin-bottom: 1.4rem;
+    }
+
+    .settings-section:last-child { margin-bottom: 0; }
+
+    .settings-label {
+      font-size: 0.65rem;
+      font-weight: 500;
+      color: var(--date-color);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.7rem;
+    }
+
+    /* ---- Toggle Switch ---- */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+    }
+
+    .toggle-label {
+      font-size: 0.85rem;
+      color: var(--clock-color);
+      font-weight: 300;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      cursor: pointer;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--btn-bg);
+      border-radius: 22px;
+      transition: background 0.3s ease;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: var(--clock-color);
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+      opacity: 0.8;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--accent);
+    }
+
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(18px);
+      opacity: 1;
+    }
+
+    /* ---- Theme Grid ---- */
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .theme-swatch {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-swatch:hover { transform: scale(1.08); }
+    .theme-swatch.active { border-color: var(--accent); }
+
+    .theme-swatch::after {
+      content: attr(data-name);
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 2px;
+      font-size: 0.5rem;
+      text-align: center;
+      color: rgba(255,255,255,0.7);
+      background: rgba(0,0,0,0.4);
+      letter-spacing: 0.04em;
+    }
+
+    .theme-swatch[data-theme="light"]::after { color: rgba(0,0,0,0.6); background: rgba(255,255,255,0.5); }
+
+    .swatch-midnight   { background: linear-gradient(135deg, #0a0a1a, #1b263b); }
+    .swatch-ocean      { background: linear-gradient(135deg, #0c1426, #0d3b66); }
+    .swatch-aurora     { background: linear-gradient(135deg, #0a0f1a, #1a3a4a); }
+    .swatch-ember      { background: linear-gradient(135deg, #1a0a0a, #3d1a1a); }
+    .swatch-forest     { background: linear-gradient(135deg, #0a1a0f, #1a3d25); }
+    .swatch-purple     { background: linear-gradient(135deg, #0f0a1a, #2d1b4e); }
+    .swatch-pure-black { background: #000; }
+    .swatch-light      { background: linear-gradient(135deg, #f0f0f5, #dddde8); }
+
+    /* ---- Font Size Slider ---- */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0.4rem 0;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: var(--btn-bg);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    .slider-row input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-value {
+      font-size: 0.75rem;
+      color: var(--date-color);
+      min-width: 2.5rem;
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ---- Fullscreen button ---- */
+    .action-btn {
+      width: 100%;
+      padding: 0.55rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: var(--btn-bg);
+      color: var(--clock-color);
+      font-size: 0.8rem;
+      font-family: inherit;
+      font-weight: 400;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      letter-spacing: 0.03em;
+    }
+
+    .action-btn:hover { background: var(--btn-hover); }
+    .action-btn:active { background: var(--btn-active); }
+
+    /* ---- Keyboard hint ---- */
+    .keyboard-hints {
+      margin-top: 0.7rem;
+      padding-top: 0.7rem;
+      border-top: 1px solid var(--panel-border);
+    }
+
+    .hint-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.2rem 0;
+    }
+
+    .hint-key {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      color: var(--date-color);
+      background: var(--btn-bg);
+    }
+
+    .hint-desc {
+      font-size: 0.7rem;
+      color: var(--date-color);
+    }
+
+    /* ---- Colon blink ---- */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .colon-blink {
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 600px) {
+      .settings-panel {
+        right: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+        bottom: 4rem;
+      }
+      .settings-toggle {
+        bottom: 1rem;
+        right: 1rem;
+      }
+    }
+  </style>
+</head>
+<body class="theme-midnight">
+
+  <canvas id="bgCanvas"></canvas>
+  <div class="grid-overlay"></div>
+  <div class="glow-overlay"></div>
+  <div class="scanlines"></div>
+
+  <div class="clock-container">
+    <div class="time-display" id="timeDisplay"></div>
+    <div class="date-display" id="dateDisplay"></div>
+    <div class="greeting" id="greeting"></div>
+  </div>
+
+  <button class="settings-toggle" id="settingsToggle" aria-label="Settings">
+    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 00-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1115.6 12 3.61 3.61 0 0112 15.6z"/></svg>
+  </button>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-section">
+      <div class="settings-label">Display</div>
+      <div class="toggle-row">
+        <span class="toggle-label">24-hour format</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle24h" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Show seconds</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleSeconds" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Blink colon</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleBlink" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Show date</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleDate" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Show greeting</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleGreeting" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Font Size</div>
+      <div class="slider-row">
+        <input type="range" id="fontSlider" min="50" max="200" value="100">
+        <span class="slider-value" id="fontValue">100%</span>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-label">Theme</div>
+      <div class="theme-grid">
+        <div class="theme-swatch swatch-midnight active" data-theme="midnight" data-name="Midnight"></div>
+        <div class="theme-swatch swatch-ocean" data-theme="ocean" data-name="Ocean"></div>
+        <div class="theme-swatch swatch-aurora" data-theme="aurora" data-name="Aurora"></div>
+        <div class="theme-swatch swatch-ember" data-theme="ember" data-name="Ember"></div>
+        <div class="theme-swatch swatch-forest" data-theme="forest" data-name="Forest"></div>
+        <div class="theme-swatch swatch-purple" data-theme="purple" data-name="Purple"></div>
+        <div class="theme-swatch swatch-pure-black" data-theme="pure-black" data-name="Black"></div>
+        <div class="theme-swatch swatch-light" data-theme="light" data-name="Light"></div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <button class="action-btn" id="fullscreenBtn">Enter Fullscreen</button>
+    </div>
+
+    <div class="keyboard-hints">
+      <div class="settings-label">Keyboard Shortcuts</div>
+      <div class="hint-row"><kbd class="hint-key">F</kbd><span class="hint-desc">Toggle fullscreen</span></div>
+      <div class="hint-row"><kbd class="hint-key">S</kbd><span class="hint-desc">Toggle seconds</span></div>
+      <div class="hint-row"><kbd class="hint-key">H</kbd><span class="hint-desc">Toggle 12/24h</span></div>
+      <div class="hint-row"><kbd class="hint-key">T</kbd><span class="hint-desc">Cycle theme</span></div>
+      <div class="hint-row"><kbd class="hint-key">Esc</kbd><span class="hint-desc">Close panel</span></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    const state = {
+      is24h: true,
+      showSeconds: true,
+      blinkColon: true,
+      showDate: true,
+      showGreeting: true,
+      theme: 'midnight',
+      fontSize: 100,
+    };
+
+    const themes = ['midnight', 'ocean', 'aurora', 'ember', 'forest', 'purple', 'pure-black', 'light'];
+
+    function loadSettings() {
+      try {
+        const saved = localStorage.getItem('clocktab-settings');
+        if (saved) Object.assign(state, JSON.parse(saved));
+      } catch (_) { /* ignore parse errors */ }
+    }
+
+    function saveSettings() {
+      try {
+        localStorage.setItem('clocktab-settings', JSON.stringify(state));
+      } catch (_) { /* storage full or unavailable */ }
+    }
+
+    function applyTheme() {
+      document.body.className = `theme-${state.theme}`;
+      $$('.theme-swatch').forEach((s) => {
+        s.classList.toggle('active', s.dataset.theme === state.theme);
+      });
+    }
+
+    function applyFontSize() {
+      const scale = state.fontSize / 100;
+      $('#timeDisplay').style.fontSize = `clamp(${5 * scale}rem, ${18 * scale}vw, ${16 * scale}rem)`;
+      $('#fontSlider').value = state.fontSize;
+      $('#fontValue').textContent = state.fontSize + '%';
+    }
+
+    function getGreeting() {
+      const h = new Date().getHours();
+      if (h < 5)  return 'Good Night';
+      if (h < 12) return 'Good Morning';
+      if (h < 17) return 'Good Afternoon';
+      if (h < 21) return 'Good Evening';
+      return 'Good Night';
+    }
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function updateClock() {
+      const now = new Date();
+      let h = now.getHours();
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+      let ampm = '';
+
+      if (!state.is24h) {
+        ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+      }
+
+      const colonClass = state.blinkColon ? 'colon-blink' : '';
+      let timeStr = `${state.is24h ? pad(h) : h}<span class="${colonClass}">:</span>${pad(m)}`;
+
+      if (state.showSeconds) {
+        timeStr += `<span class="seconds">${pad(s)}</span>`;
+      }
+
+      if (!state.is24h) {
+        timeStr += `<span class="ampm">${ampm}</span>`;
+      }
+
+      $('#timeDisplay').innerHTML = timeStr;
+
+      if (state.showDate) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        $('#dateDisplay').textContent = now.toLocaleDateString(undefined, options);
+        $('#dateDisplay').style.display = '';
+      } else {
+        $('#dateDisplay').style.display = 'none';
+      }
+
+      if (state.showGreeting) {
+        $('#greeting').textContent = getGreeting();
+        $('#greeting').style.display = '';
+      } else {
+        $('#greeting').style.display = 'none';
+      }
+    }
+
+    function syncToggles() {
+      $('#toggle24h').checked = state.is24h;
+      $('#toggleSeconds').checked = state.showSeconds;
+      $('#toggleBlink').checked = state.blinkColon;
+      $('#toggleDate').checked = state.showDate;
+      $('#toggleGreeting').checked = state.showGreeting;
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+        $('#fullscreenBtn').textContent = 'Exit Fullscreen';
+      } else {
+        document.exitFullscreen();
+        $('#fullscreenBtn').textContent = 'Enter Fullscreen';
+      }
+    }
+
+    // Settings panel toggle
+    $('#settingsToggle').addEventListener('click', () => {
+      const panel = $('#settingsPanel');
+      const btn = $('#settingsToggle');
+      const isOpen = panel.classList.contains('open');
+      panel.classList.toggle('open', !isOpen);
+      btn.classList.toggle('active', !isOpen);
+    });
+
+    // Close panel on outside click
+    document.addEventListener('click', (e) => {
+      const panel = $('#settingsPanel');
+      const btn = $('#settingsToggle');
+      if (!panel.contains(e.target) && !btn.contains(e.target) && panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        btn.classList.remove('active');
+      }
+    });
+
+    // Toggle handlers
+    $('#toggle24h').addEventListener('change', (e) => { state.is24h = e.target.checked; saveSettings(); updateClock(); });
+    $('#toggleSeconds').addEventListener('change', (e) => { state.showSeconds = e.target.checked; saveSettings(); updateClock(); });
+    $('#toggleBlink').addEventListener('change', (e) => { state.blinkColon = e.target.checked; saveSettings(); updateClock(); });
+    $('#toggleDate').addEventListener('change', (e) => { state.showDate = e.target.checked; saveSettings(); updateClock(); });
+    $('#toggleGreeting').addEventListener('change', (e) => { state.showGreeting = e.target.checked; saveSettings(); updateClock(); });
+
+    // Font slider
+    $('#fontSlider').addEventListener('input', (e) => {
+      state.fontSize = parseInt(e.target.value, 10);
+      applyFontSize();
+      saveSettings();
+    });
+
+    // Theme swatches
+    $$('.theme-swatch').forEach((swatch) => {
+      swatch.addEventListener('click', () => {
+        state.theme = swatch.dataset.theme;
+        applyTheme();
+        saveSettings();
+      });
+    });
+
+    // Fullscreen
+    $('#fullscreenBtn').addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', () => {
+      $('#fullscreenBtn').textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Enter Fullscreen';
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      const key = e.key.toLowerCase();
+      if (key === 'f') { toggleFullscreen(); }
+      else if (key === 's') { state.showSeconds = !state.showSeconds; syncToggles(); saveSettings(); updateClock(); }
+      else if (key === 'h') { state.is24h = !state.is24h; syncToggles(); saveSettings(); updateClock(); }
+      else if (key === 't') {
+        const idx = themes.indexOf(state.theme);
+        state.theme = themes[(idx + 1) % themes.length];
+        applyTheme(); saveSettings();
+      }
+      else if (key === 'escape') {
+        $('#settingsPanel').classList.remove('open');
+        $('#settingsToggle').classList.remove('active');
+      }
+    });
+
+    // Set page title to current time
+    function updateTitle() {
+      const now = new Date();
+      let h = now.getHours();
+      const m = pad(now.getMinutes());
+      if (!state.is24h) { h = h % 12 || 12; }
+      document.title = `${state.is24h ? pad(h) : h}:${m} — Clock Tab`;
+    }
+
+    // ---- Particle Network Background ----
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let animFrame;
+    const PARTICLE_COUNT = 80;
+    const CONNECTION_DIST = 160;
+    const MOUSE_DIST = 200;
+    let mouse = { x: -1000, y: -1000 };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4;
+        this.radius = Math.random() * 1.5 + 0.5;
+        this.baseAlpha = Math.random() * 0.5 + 0.2;
+        this.pulseSpeed = Math.random() * 0.02 + 0.005;
+        this.pulseOffset = Math.random() * Math.PI * 2;
+      }
+      update(t) {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < -50) this.x = canvas.width + 50;
+        if (this.x > canvas.width + 50) this.x = -50;
+        if (this.y < -50) this.y = canvas.height + 50;
+        if (this.y > canvas.height + 50) this.y = -50;
+
+        const dx = this.x - mouse.x;
+        const dy = this.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < MOUSE_DIST) {
+          const force = (MOUSE_DIST - dist) / MOUSE_DIST * 0.015;
+          this.vx += dx / dist * force;
+          this.vy += dy / dist * force;
+        }
+
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        if (speed > 0.8) {
+          this.vx *= 0.98;
+          this.vy *= 0.98;
+        }
+
+        this.alpha = this.baseAlpha + Math.sin(t * this.pulseSpeed + this.pulseOffset) * 0.15;
+      }
+    }
+
+    function getParticleColor() {
+      const style = getComputedStyle(document.body);
+      return style.getPropertyValue('--particle-color').trim() || '100, 160, 255';
+    }
+
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push(new Particle());
+      }
+    }
+
+    function drawParticles(t) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const color = getParticleColor();
+
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update(t);
+        const p = particles[i];
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${color}, ${p.alpha})`;
+        ctx.fill();
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECTION_DIST) {
+            const lineAlpha = (1 - dist / CONNECTION_DIST) * 0.15 * Math.min(p.alpha, p2.alpha) * 2;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = `rgba(${color}, ${lineAlpha})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+
+        const mdx = p.x - mouse.x;
+        const mdy = p.y - mouse.y;
+        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+        if (mDist < MOUSE_DIST) {
+          const lineAlpha = (1 - mDist / MOUSE_DIST) * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.strokeStyle = `rgba(${color}, ${lineAlpha})`;
+          ctx.lineWidth = 0.4;
+          ctx.stroke();
+        }
+      }
+
+      drawFloatingData(t, color);
+    }
+
+    // Floating binary/hex streams
+    const dataStreams = [];
+    function initDataStreams() {
+      for (let i = 0; i < 15; i++) {
+        dataStreams.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          speed: Math.random() * 0.3 + 0.1,
+          chars: [],
+          charCount: Math.floor(Math.random() * 6) + 3,
+          alpha: Math.random() * 0.08 + 0.02,
+          fontSize: Math.random() * 4 + 8,
+        });
+        const stream = dataStreams[dataStreams.length - 1];
+        for (let c = 0; c < stream.charCount; c++) {
+          stream.chars.push(Math.random() > 0.5
+            ? Math.round(Math.random()).toString()
+            : Math.floor(Math.random() * 16).toString(16).toUpperCase()
+          );
+        }
+      }
+    }
+
+    function drawFloatingData(t, color) {
+      ctx.font = '10px JetBrains Mono, monospace';
+      for (const stream of dataStreams) {
+        stream.y -= stream.speed;
+        if (stream.y < -stream.charCount * 14) {
+          stream.y = canvas.height + 20;
+          stream.x = Math.random() * canvas.width;
+        }
+        for (let i = 0; i < stream.chars.length; i++) {
+          const fade = 1 - i / stream.chars.length;
+          ctx.fillStyle = `rgba(${color}, ${stream.alpha * fade})`;
+          ctx.font = `${stream.fontSize}px JetBrains Mono, monospace`;
+          ctx.fillText(stream.chars[i], stream.x, stream.y + i * (stream.fontSize + 2));
+        }
+        if (Math.random() < 0.005) {
+          const idx = Math.floor(Math.random() * stream.chars.length);
+          stream.chars[idx] = Math.random() > 0.5
+            ? Math.round(Math.random()).toString()
+            : Math.floor(Math.random() * 16).toString(16).toUpperCase();
+        }
+      }
+    }
+
+    function animateBackground(t) {
+      drawParticles(t);
+      animFrame = requestAnimationFrame(animateBackground);
+    }
+
+    document.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    document.addEventListener('mouseleave', () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    });
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      initParticles();
+      dataStreams.length = 0;
+      initDataStreams();
+    });
+
+    resizeCanvas();
+    initParticles();
+    initDataStreams();
+    requestAnimationFrame(animateBackground);
+
+    // Init
+    loadSettings();
+    applyTheme();
+    applyFontSize();
+    syncToggles();
+    updateClock();
+    updateTitle();
+
+    setInterval(updateClock, 200);
+    setInterval(updateTitle, 10000);
+  </script>
+</body>
+</html>
