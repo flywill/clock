@@ -49,6 +49,20 @@
     body.theme-ember      { background: #0e0606; --particle-color: 220, 80, 60; --grid-color: rgba(220,80,60,0.04); --glow-color: rgba(180,40,30,0.08); }
     body.theme-forest     { background: #060e08; --particle-color: 60, 200, 100; --grid-color: rgba(60,200,100,0.04); --glow-color: rgba(40,160,80,0.06); }
     body.theme-purple     { background: #08060e; --particle-color: 160, 80, 240; --grid-color: rgba(160,80,240,0.04); --glow-color: rgba(120,60,200,0.08); }
+    body.theme-pink {
+      background: #fff0f3;
+      --clock-color: #4a2030;
+      --date-color: rgba(74, 32, 48, 0.55);
+      --panel-bg: rgba(255, 255, 255, 0.85);
+      --panel-border: rgba(220, 140, 160, 0.2);
+      --btn-bg: rgba(220, 120, 150, 0.1);
+      --btn-hover: rgba(220, 120, 150, 0.18);
+      --btn-active: rgba(220, 120, 150, 0.26);
+      --accent: #d4728a;
+      --particle-color: 220, 140, 168;
+      --grid-color: rgba(220,140,168,0.06);
+      --glow-color: rgba(255,182,193,0.08);
+    }
     body.theme-pure-black { background: #000000; --particle-color: 255, 255, 255; --grid-color: rgba(255,255,255,0.025); --glow-color: rgba(255,255,255,0.03); }
     body.theme-light {
       background: #eeeef4;
@@ -348,6 +362,7 @@
     }
 
     .theme-swatch[data-theme="light"]::after { color: rgba(0,0,0,0.6); background: rgba(255,255,255,0.5); }
+    .theme-swatch[data-theme="pink"]::after { color: rgba(74,32,48,0.7); background: rgba(255,255,255,0.5); }
 
     .swatch-midnight   { background: linear-gradient(135deg, #0a0a1a, #1b263b); }
     .swatch-ocean      { background: linear-gradient(135deg, #0c1426, #0d3b66); }
@@ -355,6 +370,7 @@
     .swatch-ember      { background: linear-gradient(135deg, #1a0a0a, #3d1a1a); }
     .swatch-forest     { background: linear-gradient(135deg, #0a1a0f, #1a3d25); }
     .swatch-purple     { background: linear-gradient(135deg, #0f0a1a, #2d1b4e); }
+    .swatch-pink       { background: linear-gradient(135deg, #ffd6de, #ffb6c1); }
     .swatch-pure-black { background: #000; }
     .swatch-light      { background: linear-gradient(135deg, #f0f0f5, #dddde8); }
 
@@ -541,6 +557,7 @@
         <div class="theme-swatch swatch-ember" data-theme="ember" data-name="Ember"></div>
         <div class="theme-swatch swatch-forest" data-theme="forest" data-name="Forest"></div>
         <div class="theme-swatch swatch-purple" data-theme="purple" data-name="Purple"></div>
+        <div class="theme-swatch swatch-pink" data-theme="pink" data-name="Pink"></div>
         <div class="theme-swatch swatch-pure-black" data-theme="pure-black" data-name="Black"></div>
         <div class="theme-swatch swatch-light" data-theme="light" data-name="Light"></div>
       </div>
@@ -574,7 +591,7 @@
       fontSize: 100,
     };
 
-    const themes = ['midnight', 'ocean', 'aurora', 'ember', 'forest', 'purple', 'pure-black', 'light'];
+    const themes = ['midnight', 'ocean', 'aurora', 'ember', 'forest', 'purple', 'pink', 'pure-black', 'light'];
 
     function loadSettings() {
       try {
